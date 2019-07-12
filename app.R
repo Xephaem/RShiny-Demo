@@ -12,9 +12,9 @@ ui <- dashboardPage(
   
   dashboardSidebar(
     sidebarMenu(
-      selectInput("flowerGroup", h4("Flower"),
+      selectInput("flowerGroup", h4("Iris Species"),
                   choices = c("Setosa", "Versicolor", "Virginica")),
-      menuItem("Histogram", tabName = "histogram", icon = icon("chart-bar")),
+      menuItem("Graphs", tabName = "graphs", icon = icon("chart-bar")),
       menuItem("Statistics", tabName = "statistics", icon = icon("square-root-alt"))
     )
   ),
@@ -22,19 +22,29 @@ ui <- dashboardPage(
   dashboardBody(
     
     tabItems(
-      tabItem(tabName = "histogram",
+      tabItem(tabName = "graphs",
               fluidRow(
-                box(plotOutput("hist", height = 400)),
-                box(title = "Controls",
+                tabBox(tabPanel(title = "Histogram", status = "primary",
+                                solidHeader = T, plotOutput("hist", height = 400)),
+                       tabPanel(title = "Boxplot", status = "primary",
+                                solidHeader = T, plotOutput("boxplot", height = 400))
+                ),
+                box(title = "Controls for Histogram Display", status = "warning", solidHeader = T,
+                    "Use these controls to display certain iris elements.", br(), br(),
                     radioButtons("flower_part", "Flower Part", choices = c("Sepal", "Petal")),
-                    radioButtons("length_width", "Side of Part", choices = c("Length", "Width"))
+                    radioButtons("length_width", "Dimension", choices = c("Length", "Width"))
                 )
               )
       ),
       tabItem(tabName = "statistics",
               fluidRow(
-                box(title = "TO BE ADDED")
+                tabsetPanel(
+                  type = "tab",
+                  tabPanel("Data", tableOutput("iris")),
+                  tabPanel("Summary", verbatimTextOutput("summ"))
+                )
               )
+              
       )
     )
   )
@@ -45,20 +55,24 @@ ui <- dashboardPage(
 server <- function(input, output) {
   
   df <- reactive({
+    iris[iris$Species == tolower(input$flowerGroup),]
+  })
+  
+  col <- reactive({
     
     df_temp <- c()
     
     if (input$flower_part == "Sepal") {
       if (input$length_width == "Length") {
-        df_temp <- iris$Sepal.Length[iris$Species == tolower(input$flowerGroup)]
+        df_temp <- df()$Sepal.Length
       } else {
-        df_temp <- iris$Sepal.Width[iris$Species == tolower(input$flowerGroup)]
+        df_temp <- df()$Sepal.Width
       }
     } else {
       if (input$length_width == "Length") {
-        df_temp <- iris$Petal.Length[iris$Species == tolower(input$flowerGroup)]
+        df_temp <- df()$Petal.Length
       } else {
-        df_temp <- iris$Petal.Width[iris$Species == tolower(input$flowerGroup)]
+        df_temp <- df()$Petal.Width
       }
     }
     
@@ -67,13 +81,23 @@ server <- function(input, output) {
   })
   
   title <- reactive({
-    paste("Histogram of", input$flowerGroup, input$flower_part, input$length_width)
+    paste(input$flowerGroup, input$flower_part, input$length_width)
   })
   
-  
-  
   output$hist <- renderPlot({
-    hist(df(), main = title(), xlab = "Centimeters")
+    hist(col(), main = title(), xlab = "Centimeters")
+  })
+  
+  output$boxplot <- renderPlot({
+    with(df(), boxplot(col()))
+  })
+  
+  output$iris <- renderTable({
+    select(df(), -c("Species"))
+  })
+  
+  output$summ <- renderPrint({
+    summary(select(df(), -c("Species")))
   })
   
 }
